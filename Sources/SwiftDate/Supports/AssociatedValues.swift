@@ -1,70 +1,64 @@
-//
-//  SwiftDate
-//  Parse, validate, manipulate, and display dates, time and timezones in Swift
-//
-//  Created by Daniele Margutti
-//   - Web: https://www.danielemargutti.com
-//   - Twitter: https://twitter.com/danielemargutti
-//   - Mail: hello@danielemargutti.com
-//
-//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
-//
-
 import Foundation
-import ObjectiveC.runtime
+
+// A class to hold associated values
+private class AssociatedValue {
+    weak var weakValue: AnyObject?
+    var strongValue: Any?
+
+    init(_ value: Any?) {
+        self.strongValue = value
+    }
+
+	init(weak: AnyObject?) {
+        self.weakValue = weak
+	}
+
+    var value: Any? {
+        return weakValue ?? strongValue
+}
+}
+
+// A dictionary to hold the associated values
+private var associatedValues = [String: [ObjectIdentifier: AssociatedValue]]()
 
 internal func getAssociatedValue<T>(key: String, object: AnyObject) -> T? {
-    (objc_getAssociatedObject(object, key.address) as? AssociatedValue)?.value as? T
+    let identifier = ObjectIdentifier(object)
+    return associatedValues[key]?[identifier]?.value as? T
 }
 
 internal func getAssociatedValue<T>(key: String, object: AnyObject, initialValue: @autoclosure () -> T) -> T {
-    getAssociatedValue(key: key, object: object) ?? setAndReturn(initialValue: initialValue(), key: key, object: object)
+    return getAssociatedValue(key: key, object: object) ?? setAndReturn(initialValue: initialValue(), key: key, object: object)
 }
 
 internal func getAssociatedValue<T>(key: String, object: AnyObject, initialValue: () -> T) -> T {
-    getAssociatedValue(key: key, object: object) ?? setAndReturn(initialValue: initialValue(), key: key, object: object)
+    return getAssociatedValue(key: key, object: object) ?? setAndReturn(initialValue: initialValue(), key: key, object: object)
 }
 
 private func setAndReturn<T>(initialValue: T, key: String, object: AnyObject) -> T {
-	set(associatedValue: initialValue, key: key, object: object)
-	return initialValue
+    set(associatedValue: initialValue, key: key, object: object)
+    return initialValue
 }
 
 internal func set<T>(associatedValue: T?, key: String, object: AnyObject) {
-	set(associatedValue: AssociatedValue(associatedValue), key: key, object: object)
+    let identifier = ObjectIdentifier(object)
+    if associatedValues[key] == nil {
+        associatedValues[key] = [identifier: AssociatedValue(associatedValue)]
+    } else {
+        associatedValues[key]?[identifier] = AssociatedValue(associatedValue)
+    }
 }
 
 internal func set<T: AnyObject>(weakAssociatedValue: T?, key: String, object: AnyObject) {
-	set(associatedValue: AssociatedValue(weak: weakAssociatedValue), key: key, object: object)
+    let identifier = ObjectIdentifier(object)
+    if associatedValues[key] == nil {
+        associatedValues[key] = [identifier: AssociatedValue(weak: weakAssociatedValue)]
+    } else {
+        associatedValues[key]?[identifier] = AssociatedValue(weak: weakAssociatedValue)
+    }
 }
 
 extension String {
-
-	fileprivate var address: UnsafeRawPointer {
-		return UnsafeRawPointer(bitPattern: abs(hashValue))!
-	}
-
-}
-
-private func set(associatedValue: AssociatedValue, key: String, object: AnyObject) {
-	objc_setAssociatedObject(object, key.address, associatedValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-}
-
-private class AssociatedValue {
-
-	weak var _weakValue: AnyObject?
-	var _value: Any?
-
-	var value: Any? {
-		return _weakValue ?? _value
-	}
-
-	init(_ value: Any?) {
-		_value = value
-	}
-
-	init(weak: AnyObject?) {
-		_weakValue = weak
-	}
-
+    fileprivate var address: UnsafeRawPointer {
+        return UnsafeRawPointer(bitPattern: abs(hashValue))!
+    }
 }
